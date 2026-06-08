@@ -1,0 +1,25 @@
+name: DB Validate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate migrations against Neon (DEV)
+        run: |
+          docker run --rm \
+            -v "$PWD/migrations:/flyway/sql" \
+            flyway/flyway:12.8.1 \
+            -url="${{ secrets.NEON_DEV_JDBC_URL }}" \
+            -user="${{ secrets.NEON_DEV_DB_USER }}" \
+            -password="${{ secrets.NEON_DEV_DB_PASSWORD }}" \
+            -locations="filesystem:/flyway/sql" \
+            -connectRetries=10 \
+            -ignoreMigrationPatterns='*:pending' \
+            validate
