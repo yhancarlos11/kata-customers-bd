@@ -1,0 +1,58 @@
+name: DB Migrate Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select connection secrets
+        id: secrets
+        shell: bash
+        run: |
+          if [ "${{ inputs.target }}" = "prod" ]; then
+            echo "jdbc_url=${{ secrets.NEON_PROD_JDBC_URL }}" >> $GITHUB_OUTPUT
+            echo "db_user=${{ secrets.NEON_PROD_DB_USER }}" >> $GITHUB_OUTPUT
+            echo "db_password=${{ secrets.NEON_PROD_DB_PASSWORD }}" >> $GITHUB_OUTPUT
+          else
+            echo "jdbc_url=${{ secrets.NEON_DEV_JDBC_URL }}" >> $GITHUB_OUTPUT
+            echo "db_user=${{ secrets.NEON_DEV_DB_USER }}" >> $GITHUB_OUTPUT
+            echo "db_password=${{ secrets.NEON_DEV_DB_PASSWORD }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Migrate with Flyway
+        run: |
+          docker run --rm \
+            -v "$PWD/migrations:/flyway/sql" \
+            flyway/flyway:12.8.1 \
+            -url="${{ steps.secrets.outputs.jdbc_url }}" \
+            -user="${{ steps.secrets.outputs.db_user }}" \
+            -password="${{ steps.secrets.outputs.db_password }}" \
+            -locations="filesystem:/flyway/sql" \
+            -baselineOnMigrate=true \
+            -connectRetries=10 \
+            migrate
+
+      - name: Show migration info
+        run: |
+          docker run --rm \
+            -v "$PWD/migrations:/flyway/sql" \
+            flyway/flyway:12.8.1 \
+            -url="${{ steps.secrets.outputs.jdbc_url }}" \
+            -user="${{ steps.secrets.outputs.db_user }}" \
+            -password="${{ steps.secrets.outputs.db_password }}" \
+            -locations="filesystem:/flyway/sql" \
+            info
