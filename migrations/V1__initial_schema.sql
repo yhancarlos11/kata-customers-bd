@@ -1,6 +1,3 @@
--- Initial schema for kata-customers.
--- This script is safe to run on empty environments.
-
 CREATE TABLE IF NOT EXISTS app_users (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
