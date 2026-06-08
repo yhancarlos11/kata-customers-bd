@@ -37,7 +37,7 @@ jobs:
         run: |
           docker run --rm \
             -v "$PWD/migrations:/flyway/sql" \
-            flyway/flyway:10 \
+            flyway/flyway:12.8.1 \
             -url="${{ steps.secrets.outputs.jdbc_url }}" \
             -user="${{ steps.secrets.outputs.db_user }}" \
             -password="${{ steps.secrets.outputs.db_password }}" \
@@ -50,7 +50,7 @@ jobs:
         run: |
           docker run --rm \
             -v "$PWD/migrations:/flyway/sql" \
-            flyway/flyway:10 \
+            flyway/flyway:12.8.1 \
             -url="${{ steps.secrets.outputs.jdbc_url }}" \
             -user="${{ steps.secrets.outputs.db_user }}" \
             -password="${{ steps.secrets.outputs.db_password }}" \

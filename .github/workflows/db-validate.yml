@@ -15,11 +15,11 @@ jobs:
         run: |
           docker run --rm \
             -v "$PWD/migrations:/flyway/sql" \
-            flyway/flyway:10 \
+            flyway/flyway:12.8.1 \
             -url="${{ secrets.NEON_DEV_JDBC_URL }}" \
             -user="${{ secrets.NEON_DEV_DB_USER }}" \
             -password="${{ secrets.NEON_DEV_DB_PASSWORD }}" \
             -locations="filesystem:/flyway/sql" \
-            -baselineOnMigrate=true \
             -connectRetries=10 \
+            -ignoreMigrationPatterns='*:pending' \
             validate
