@@ -1,77 +1,52 @@
 # kata-customers-bd
 
-Repositorio de migraciones de base de datos para kata-customers, usando Flyway + Neon.
+Guia de versionado de scripts SQL y promocion de cambios por ambientes con Flyway.
 
-## Estructura
+## 1. Como se versionan los scripts
 
-- `migrations/`: scripts SQL versionados.
-- `.github/workflows/db-validate.yml`: valida migraciones en PR.
-- `.github/workflows/db-migrate-manual.yml`: aplica migraciones por ejecucion manual.
+Todos los cambios de base de datos se registran en la carpeta `migrations/` con archivos SQL versionados.
 
-## Objetivo operativo
+### Regla de nombre
 
-- No romper lo que ya esta desplegado.
-- Registrar cambios de esquema por PR y version.
-- Aplicar cambios a Neon de forma controlada.
+- Formato obligatorio: `V<numero>__<descripcion>.sql`
+- Ejemplos:
+  - `V1__initial_schema.sql`
+  - `V2__add_index_products_customer_id.sql`
+  - `V3__add_revoked_default.sql`
 
-## Convencion de migraciones
+### Reglas de versionado
 
-- Formato: `V<version>__<descripcion>.sql`
-- Ejemplo: `V2__add_index_to_refresh_tokens.sql`
+- Nunca modificar un script ya aplicado en un ambiente.
+- Cada cambio nuevo va en una nueva version (V2, V3, V4...).
+- Los scripts deben ser idempotentes cuando aplique (`IF NOT EXISTS`) para reducir riesgo.
+- Un script debe representar un cambio pequeno, claro y auditable.
 
-## Secrets requeridos en GitHub
+## 2. Flujo por ambientes hasta despliegue
 
-Configurar en `Settings > Secrets and variables > Actions`:
+### Paso 1: Desarrollo del cambio
 
-- `NEON_DEV_JDBC_URL`
-- `NEON_DEV_DB_USER`
-- `NEON_DEV_DB_PASSWORD`
-- `NEON_PROD_JDBC_URL`
-- `NEON_PROD_DB_USER`
-- `NEON_PROD_DB_PASSWORD`
+1. Crear un nuevo script en `migrations/`.
+2. Commit en rama de trabajo.
+3. Abrir Pull Request.
 
-Notas:
+### Paso 2: Validacion en CI
 
-- Para migraciones usar Neon **direct host**.
-- Usar SSL (`sslmode=require`) en la URL JDBC.
+1. El workflow `DB Validate` se ejecuta en el PR.
+2. Si falla, corregir el script y actualizar el PR.
+3. Si pasa, el cambio esta listo para promocion.
 
-## Flujo recomendado
+### Paso 3: Promocion a DEV
 
-1. Crear migracion nueva en `migrations/`.
-2. Abrir PR.
-3. Workflow `DB Validate` valida orden y consistencia.
-4. Al aprobar PR, ejecutar `DB Migrate Manual` y elegir `dev` o `prod`.
+1. Aprobado el PR, ejecutar workflow `DB Migrate Manual` con `target=dev`.
+2. Confirmar en Neon DEV que la migracion quedo registrada en `flyway_schema_history`.
 
-## Seguridad para entornos existentes
+### Paso 4: Promocion a PROD
 
-Los workflows ejecutan Flyway con `baselineOnMigrate=true` para no romper bases ya existentes sin tabla de historial.
+1. Solo despues de validar en DEV, ejecutar `DB Migrate Manual` con `target=prod`.
+2. Confirmar en Neon PROD `flyway_schema_history` con estado exitoso.
 
-## Comandos locales opcionales
+### Paso 5: Despliegue de aplicacion
 
-Validar:
-
-```bash
-docker run --rm \
-	-v "$PWD/migrations:/flyway/sql" \
-	flyway/flyway:10 \
-	-url="<NEON_DEV_JDBC_URL>" \
-	-user="<NEON_DEV_DB_USER>" \
-	-password="<NEON_DEV_DB_PASSWORD>" \
-	-locations="filesystem:/flyway/sql" \
-	-baselineOnMigrate=true \
-	validate
-```
-
-Migrar:
-
-```bash
-docker run --rm \
-	-v "$PWD/migrations:/flyway/sql" \
-	flyway/flyway:10 \
-	-url="<NEON_PROD_JDBC_URL>" \
-	-user="<NEON_PROD_DB_USER>" \
-	-password="<NEON_PROD_DB_PASSWORD>" \
-	-locations="filesystem:/flyway/sql" \
-	-baselineOnMigrate=true \
-	migrate
-```
+1. Primero migrar BD.
+2. Despues desplegar backend.
+3. Mantener esta secuencia para evitar incompatibilidades.
